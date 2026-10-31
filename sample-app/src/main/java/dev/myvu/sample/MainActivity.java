@@ -8,6 +8,7 @@ import android.text.method.ScrollingMovementMethod;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -97,6 +98,22 @@ public class MainActivity extends AppCompatActivity implements LogRingBuffer.Lis
             if (client != null) client.addListener(stateListener);
         }));
         root.addView(button("Disconnect", v -> MyvuService.stop(this)));
+        final EditText macBox = new EditText(this);
+        macBox.setHint("Glasses address, e.g. CE:CF:D7:9B:A5:E1");
+        macBox.setSingleLine(true);
+        root.addView(macBox);
+        root.addView(button("Connect to this address", v -> {
+            String mac = macBox.getText().toString().trim().toUpperCase(java.util.Locale.US);
+            if (!android.bluetooth.BluetoothAdapter.checkBluetoothAddress(mac)) {
+                Toast.makeText(this, "Not a valid address (format AA:BB:CC:DD:EE:FF)", Toast.LENGTH_LONG).show();
+                return;
+            }
+            appendLine(">> connecting to " + mac);
+            MyvuService.start(this, mac);
+            MyvuClient client = MyvuService.client();
+            if (client != null) client.addListener(stateListener);
+        }));
+
 
         root.addView(button("Teleprompter", v -> withClient(c ->
                 c.openTeleprompter(
