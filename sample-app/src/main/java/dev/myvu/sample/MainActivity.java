@@ -101,6 +101,9 @@ public class MainActivity extends AppCompatActivity implements LogRingBuffer.Lis
         final EditText macBox = new EditText(this);
         macBox.setHint("Glasses address, e.g. CE:CF:D7:9B:A5:E1");
         macBox.setSingleLine(true);
+        final android.content.SharedPreferences prefs =
+                getSharedPreferences("myvu", MODE_PRIVATE);
+        macBox.setText(prefs.getString("mac", ""));
         root.addView(macBox);
         root.addView(button("Connect to this address", v -> {
             String mac = macBox.getText().toString().trim().toUpperCase(java.util.Locale.US);
@@ -108,7 +111,8 @@ public class MainActivity extends AppCompatActivity implements LogRingBuffer.Lis
                 Toast.makeText(this, "Not a valid address (format AA:BB:CC:DD:EE:FF)", Toast.LENGTH_LONG).show();
                 return;
             }
-            appendLine(">> connecting to " + mac);
+            prefs.edit().putString("mac", mac).apply();
+            appendLine(">> connecting to " + mac + " (saved)");
             MyvuService.start(this, mac);
             MyvuClient client = MyvuService.client();
             if (client != null) client.addListener(stateListener);
