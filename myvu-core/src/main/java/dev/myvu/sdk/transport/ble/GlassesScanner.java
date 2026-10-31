@@ -37,7 +37,10 @@ public class GlassesScanner {
     /** GATT primary service (0x0bd1) -- some builds advertise this instead. */
     private static final UUID GATT_SERVICE = uuid16(0x0bd1);
 
-    private static final long DEFAULT_TIMEOUT_MS = 12000;
+    private static final long DEFAULT_TIMEOUT_MS = 30000;
+
+    /** Diagnostic: every device seen once, so unknown glasses names show in the log. */
+    private final java.util.Set<String> seen = new java.util.HashSet<>();
 
     public interface Callback {
         void onFound(BluetoothDevice device, String name);
@@ -73,6 +76,7 @@ public class GlassesScanner {
             @Override
             public void onScanResult(int callbackType, ScanResult result) {
                 if (!active) return;
+                logSeen(result);
                 if (matches(result)) {
                     BluetoothDevice d = result.getDevice();
                     String name = nameOf(result);
@@ -95,6 +99,7 @@ public class GlassesScanner {
                 .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .build();
         active = true;
+        seen.clear();
         try {
             // Null filters = report everything; we match in the callback.
             scanner.startScan(null, settings, scanCallback);
@@ -135,7 +140,8 @@ public class GlassesScanner {
         if (name != null) {
             String u = name.toUpperCase(Locale.US);
             // Bonded/advertised name is "MYVU DCxx"; the model reads "Star Air".
-            if (u.contains("MYVU")) return true;
+            if (u.contains("MYVU") || u.contains("STAR") || u.contains("MEIZU")
+                    || u.contains("XGA")) return true;
         }
         ScanRecord rec = r.getScanRecord();
         if (rec != null) {
@@ -148,6 +154,22 @@ public class GlassesScanner {
             }
         }
         return false;
+    }
+
+    private void logSeen(ScanResult r) {
+        String addr = r.getDevice().getAddress();
+        if (!seen.add(addr) || seen.size() > 60) return;
+        String name = nameOf(r);
+        StringBuilder u = new StringBuilder();
+        ScanRecord rec = r.getScanRecord();
+        if (rec != null && rec.getServiceUuids() != null) {
+            for (ParcelUuid pu : rec.getServiceUuids()) {
+                String id = pu.getUuid().toString();
+                u.append(id.startsWith("0000") ? id.substring(4, 8) : id.substring(0, 8)).append(' ');
+            }
+        }
+        SdkLog.log("seen: " + (name != null ? name : "(no name)") + " " + addr
+                + " rssi=" + r.getRssi() + (u.length() > 0 ? " uuids=" + u.toString().trim() : ""));
     }
 
     private static String nameOf(ScanResult r) {
